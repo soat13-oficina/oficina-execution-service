@@ -1,0 +1,7 @@
+# Mesmo group.name nos tres servicos do ambiente: um unico ALB para oficina-prd.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oficina-execution-service
+  annotations:
+    alb.ingress.kubernetes.io/group.name: oficina-prd

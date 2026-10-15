@@ -1,0 +1,89 @@
+name: CI/CD (execution)
+
+# Camada de APLICACAO do Execution Service. Mesmo padrao de nomes de job dos outros repositorios:
+# testes . qualidade . validacao . (build . deploy).
+#
+#   PR / push em desenvolvimento, homologacao, master -> testes, qualidade e validacao
+#
+# build (imagem no ECR) e deploy (EKS) entram junto com o infra/ deste repositorio (ECR, tabelas DynamoDB,
+# fila, IRSA), no Passo 2/4 da Fase 4. Ate la, nada daqui depende de AWS.
+#
+# Configuracao no repositorio (ou na organizacao):
+#   Secrets:   SONAR_TOKEN (SonarCloud)  -  AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (deploy)
+#   Variables: AWS_REGION (opcional, default us-east-1)
+
+on:
+  pull_request:
+  push:
+    branches: [master, homologacao, desenvolvimento]
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Testes unitarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # mvn verify roda build, testes e o gate do JaCoCo (80% de linhas e branches no servico).
+      - name: Build + testes unitarios (cobertura JaCoCo)
+        run: ./mvnw --batch-mode clean verify
+
+      - name: Publica relatorio de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+  qualidade:
+    name: Qualidade (SonarCloud)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historico completo: o Sonar usa o blame para separar codigo novo de codigo antigo.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Quality gate bloqueante (sonar.qualitygate.wait): o job falha se o gate falhar.
+      # Enquanto o SONAR_TOKEN nao existir, o job avisa e nao analisa - para nao travar os PRs
+      # antes de o projeto ser criado no SonarCloud. No SonarCloud, desligar a "Automatic
+      # Analysis" do projeto: ela conflita com a analise feita pelo CI.
+      - name: Analise + quality gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::warning::SONAR_TOKEN nao configurado - analise do SonarCloud pulada."
+            exit 0
+          fi
+          ./mvnw --batch-mode verify sonar:sonar -Dsonar.qualitygate.wait=true
+
+  # Valida que os dois overlays continuam renderizando: um erro de kustomize so apareceria no deploy.
+  validacao:
+    name: Validacao dos manifestos (kustomize)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: kubectl kustomize dos dois ambientes
+        run: |
+          for ENV in hml prd; do
+            echo "== overlays/$ENV =="
+            kubectl kustomize "k8s/overlays/$ENV" > /dev/null
+          done
+          echo "Overlays renderizam sem erro."
