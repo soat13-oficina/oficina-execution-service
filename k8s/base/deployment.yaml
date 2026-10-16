@@ -1,0 +1,86 @@
+# Namespace, imagem, replicas e recursos vem do overlay do ambiente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oficina-execution-service
+  labels:
+    app: oficina-execution-service
+spec:
+  selector:
+    matchLabels:
+      app: oficina-execution-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: oficina-execution-service
+        app.kubernetes.io/name: oficina-execution-service
+        app.kubernetes.io/part-of: oficina
+        # Unified service tagging da Datadog (env e version vem do overlay e da pipeline).
+        tags.datadoghq.com/service: oficina-execution-service
+      # A anotacao OpenMetrics do Datadog (ad.datadoghq.com/...) entra junto com as primeiras
+      # metricas de negocio (estoque e reservas), no Passo 4 - mesma lista fechada usada no OS Service.
+    spec:
+      serviceAccountName: oficina-execution-service
+      containers:
+        - name: oficina-execution-service
+          # Nome simbolico: o overlay troca por <ECR>/oficina-execution-service:<tag> (bloco images:).
+          image: oficina-execution-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            # Actuator (health + prometheus): fora do Service e do Ingress; probes e o Datadog
+            # Agent falam direto com o IP do pod.
+            - name: management
+              containerPort: 8081
+          envFrom:
+            # ConfigMap gerado pelo overlay (configMapGenerator) com sufixo de hash: mudanca de
+            # configuracao dispara rolling update.
+            - configMapRef:
+                name: oficina-execution-service-config
+          env:
+            - name: MANAGEMENT_SERVER_PORT
+              value: "8081"
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_SERVICE
+              value: "oficina-execution-service"
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            # Log JSON (Elastic Common Schema, nativo do Spring Boot 4), como no OS Service.
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: "ecs"
+            # Secret criado pela pipeline a partir do Secrets Manager (oficina/<env>/jwt-secret).
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oficina-execution-service-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3

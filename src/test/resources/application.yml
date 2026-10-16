@@ -1,0 +1,5 @@
+jwt:
+  secret: chave-secreta-de-teste-para-rodar-os-testes-unitarios-2026
+
+observabilidade:
+  ambiente: teste

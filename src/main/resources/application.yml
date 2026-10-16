@@ -1,0 +1,27 @@
+spring:
+  application:
+    # Igual ao DD_SERVICE e ao label tags.datadoghq.com/service do pod: e o service.name do log
+    # estruturado ECS. Divergir quebra a correlacao log <-> trace no Datadog.
+    name: oficina-execution-service
+
+jwt:
+  # Mesmo segredo do OS Service e da Lambda de autenticacao (oficina/<env>/jwt-secret).
+  # O default so serve ao desenvolvimento local.
+  secret: ${JWT_SECRET:SUA_CHAVE_SECRETA_MUITO_SEGURA_E_LONGA_PARA_O_JWT_DA_OFICINA_2026}
+
+# Health checks dos probes do Kubernetes e do HEALTHCHECK do Dockerfile:
+#   /actuator/health/liveness  - processo vivo
+#   /actuator/health/readiness - pronto para receber trafego (o DynamoDB entra aqui no Passo 4)
+# Em nuvem o management sobe na 8081 (MANAGEMENT_SERVER_PORT), fora do Service e do Ingress.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+observabilidade:
+  ambiente: ${AMBIENTE:local}
