@@ -39,6 +39,12 @@ public final class TabelasDeTeste {
                         .keySchema(chave("etapa", KeyType.HASH), chave("entrouNaEtapaEm", KeyType.RANGE))
                         .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
                         .build()));
+        criarControle(dynamo, ambiente);
+    }
+
+    /** Idempotencia, outbox e concessao do publicador (GSI esparso outbox-pendente). */
+    public static void criarControle(DynamoDbClient dynamo, String ambiente) {
+        String prefixo = "oficina-" + ambiente + "-";
         dynamo.createTable(r -> r.tableName(prefixo + "execution-controle")
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .attributeDefinitions(atributo("pk"), atributo("pendente"), atributo("criadoEm"))

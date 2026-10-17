@@ -22,8 +22,8 @@ spec:
         app.kubernetes.io/part-of: oficina
         # Unified service tagging da Datadog (env e version vem do overlay e da pipeline).
         tags.datadoghq.com/service: oficina-execution-service
-      # A anotacao OpenMetrics do Datadog (ad.datadoghq.com/...) entra junto com as primeiras
-      # metricas de negocio (estoque e reservas), no Passo 4 - mesma lista fechada usada no OS Service.
+      # A anotacao OpenMetrics do Datadog (ad.datadoghq.com/...) entra com as metricas de negocio
+      # (estoque, reservas, fila), no Passo 6 - mesma lista fechada usada no OS Service.
     spec:
       serviceAccountName: oficina-execution-service
       containers:
@@ -57,12 +57,20 @@ spec:
             # Log JSON (Elastic Common Schema, nativo do Spring Boot 4), como no OS Service.
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"
-            # Secret criado pela pipeline a partir do Secrets Manager (oficina/<env>/jwt-secret).
+            # Secret criado pela pipeline a partir do Secrets Manager (ci-cd.yml, job deploy):
+            #   JWT_SECRET      oficina/<env>/jwt-secret (o mesmo do OS e da Lambda)
+            #   SERVICE_TOKEN   oficina/<env>/service-token (protege /internal/**)
+            # O acesso ao DynamoDB e ao SQS e pela Role IRSA, sem credencial.
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: oficina-execution-service-secrets
                   key: JWT_SECRET
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: oficina-execution-service-secrets
+                  key: SERVICE_TOKEN
           startupProbe:
             httpGet:
               path: /actuator/health/liveness

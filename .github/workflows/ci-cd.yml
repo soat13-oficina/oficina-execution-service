@@ -1,12 +1,22 @@
 name: CI/CD (execution)
 
 # Camada de APLICACAO do Execution Service. Mesmo padrao de nomes de job dos outros repositorios:
-# testes . qualidade . validacao . (build . deploy).
+# testes . qualidade . validacao . build . deploy.
 #
-#   PR / push em desenvolvimento, homologacao, master -> testes, qualidade e validacao
+#   PR / push em desenvolvimento -> testes, qualidade e validacao
+#   push homologacao             -> + imagem no ECR + deploy no namespace oficina-hml
+#   push master                  -> + imagem no ECR + deploy no namespace oficina-prd
+#   workflow_dispatch            -> imagem + deploy no ambiente escolhido
 #
-# build (imagem no ECR) e deploy (EKS) entram junto com o infra/ deste repositorio (ECR, tabelas DynamoDB,
-# fila, IRSA), no Passo 2/4 da Fase 4. Ate la, nada daqui depende de AWS.
+# INFRAESTRUTURA de que o deploy depende (aplicada antes, a mao):
+#   oficina-infra-k8s        VPC, EKS (e o AWS Load Balancer Controller, para o Ingress)
+#   oficina-app infra/       fila os-saga-replies e o segredo oficina/<env>/service-token
+#   infra/ (este repo)       tabelas do DynamoDB oficina-<env>-{pecas,reservas,execucoes,execution-controle},
+#                            fila execution-commands, ECR e Role IRSA - workflow infra.yml, manual
+#   oficina-lambda-auth      segredo do JWT (oficina/<env>/jwt-secret)
+#
+# Depois do rollout, o catalogo de demonstracao (scripts/seed-pecas.json) e carregado se a tabela de
+# pecas estiver vazia: os ambientes sao recriados a cada subida e nao ha migracao de dados.
 #
 # Configuracao no repositorio (ou na organizacao):
 #   Secrets:   SONAR_TOKEN (SonarCloud)  -  AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (deploy)
@@ -16,9 +26,24 @@ on:
   pull_request:
   push:
     branches: [master, homologacao, desenvolvimento]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente de destino do deploy
+        type: choice
+        required: true
+        default: hml
+        options: [hml, prd]
 
 permissions:
   contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  EKS_CLUSTER: oficina
+  # Honra o input do dispatch e cai na branch quando o gatilho e push.
+  AMBIENTE: ${{ inputs.environment || (github.ref_name == 'master' && 'prd' || 'hml') }}
+  NAMESPACE: oficina-${{ inputs.environment || (github.ref_name == 'master' && 'prd' || 'hml') }}
 
 jobs:
   testes:
@@ -87,3 +112,159 @@ jobs:
             kubectl kustomize "k8s/overlays/$ENV" > /dev/null
           done
           echo "Overlays renderizam sem erro."
+
+  build:
+    name: Build e push da imagem (ECR)
+    needs: [testes, validacao]
+    if: >-
+      (github.event_name == 'push' && (github.ref_name == 'master' || github.ref_name == 'homologacao'))
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.ecr.outputs.registry }}
+      tag: ${{ steps.image.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Um repositorio ECR por ambiente (infra/ecr.tf); a tag movel <env>-latest ajuda no rollback.
+      - id: image
+        name: Define a tag da imagem
+        run: |
+          echo "tag=${AMBIENTE}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "repo=oficina-execution-service-${AMBIENTE}" >> "$GITHUB_OUTPUT"
+
+      - name: Confere o repositorio ECR
+        run: |
+          if ! aws ecr describe-repositories --repository-names "${{ steps.image.outputs.repo }}" >/dev/null 2>&1; then
+            echo "::error::Repositorio ECR ${{ steps.image.outputs.repo }} nao existe. Rode o workflow 'Infra (Execution)' (apply em $AMBIENTE)."
+            exit 1
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ steps.image.outputs.repo }}:${{ steps.image.outputs.tag }}
+            ${{ steps.ecr.outputs.registry }}/${{ steps.image.outputs.repo }}:${{ env.AMBIENTE }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy em ${{ inputs.environment || (github.ref_name == 'master' && 'prd' || 'hml') }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ (inputs.environment || (github.ref_name == 'master' && 'prd' || 'hml')) == 'prd' && 'producao' || 'homologacao' }}
+    concurrency:
+      group: oficina-execution-${{ inputs.environment || (github.ref_name == 'master' && 'prd' || 'hml') }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Aponta kubectl para o cluster
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER"
+
+      # Tabelas do DynamoDB criadas pelo infra/ (dynamodb.tf): sem elas o servico subiria sem estoque.
+      - name: Confere as tabelas do DynamoDB
+        run: |
+          for TABELA in pecas reservas execucoes execution-controle; do
+            NOME="oficina-${AMBIENTE}-${TABELA}"
+            if ! aws dynamodb describe-table --table-name "$NOME" >/dev/null 2>&1; then
+              echo "::error::Tabela $NOME nao encontrada. Rode o workflow 'Infra (Execution)' (apply em $AMBIENTE) antes deste deploy."
+              exit 1
+            fi
+          done
+
+      - name: Descobre o ARN da IAM Role do servico
+        id: irsa
+        run: |
+          ROLE="oficina-${AMBIENTE}-oficina-execution-service"
+          if ! ROLE_ARN=$(aws iam get-role --role-name "$ROLE" --query 'Role.Arn' --output text 2>/dev/null); then
+            echo "::error::Role $ROLE nao encontrada. Rode o workflow 'Infra (Execution)' (apply em $AMBIENTE)."
+            exit 1
+          fi
+          echo "role_arn=$ROLE_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Garante o namespace
+        run: kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+      # Secrets criados imperativamente e NUNCA versionados.
+      - name: Cria os Secrets do ambiente
+        run: |
+          ler() {
+            aws secretsmanager get-secret-value --secret-id "$1" --query SecretString --output text 2>/dev/null || true
+          }
+
+          # Mesmo segredo do OS e da Lambda de autenticacao: o JWT emitido la vale aqui.
+          JWT_SECRET=$(ler "oficina/${AMBIENTE}/jwt-secret")
+          if [ -z "$JWT_SECRET" ]; then
+            echo "::error::Segredo oficina/${AMBIENTE}/jwt-secret nao encontrado. Aplique oficina-lambda-auth em $AMBIENTE."
+            exit 1
+          fi
+          echo "::add-mask::$JWT_SECRET"
+
+          # X-Service-Token que protege /internal/** (consulta de precos pelo Billing e conferencia de
+          # pecas pelo OS); o mesmo segredo dos tres servicos (infra/ do oficina-app).
+          SERVICE_TOKEN=$(ler "oficina/${AMBIENTE}/service-token")
+          if [ -z "$SERVICE_TOKEN" ]; then
+            echo "::error::Segredo oficina/${AMBIENTE}/service-token nao encontrado. Rode o 'Infra (OS Service)' do oficina-app em $AMBIENTE."
+            exit 1
+          fi
+          echo "::add-mask::$SERVICE_TOKEN"
+
+          kubectl create secret generic oficina-execution-service-secrets             --namespace "$NAMESPACE"             --from-literal=JWT_SECRET="$JWT_SECRET"             --from-literal=SERVICE_TOKEN="$SERVICE_TOKEN"             --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Preenche o overlay de ${{ env.AMBIENTE }}
+        env:
+          IRSA_ROLE_ARN: ${{ steps.irsa.outputs.role_arn }}
+          REGISTRY: ${{ needs.build.outputs.registry }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          OVERLAY="k8s/overlays/${AMBIENTE}"
+          echo "DD_VERSION=${TAG}" >> "$OVERLAY/app.env"
+
+          sed -i "s#__IMAGE_REPO__#${REGISTRY}/oficina-execution-service-${AMBIENTE}#" "$OVERLAY/kustomization.yaml"
+          sed -i "s#__IMAGE_TAG__#${TAG}#"                                             "$OVERLAY/kustomization.yaml"
+          sed -i "s#__IRSA_ROLE_ARN__#${IRSA_ROLE_ARN}#"                               "$OVERLAY/patch-serviceaccount.yaml"
+
+          echo "--- manifesto final ---"
+          kubectl kustomize "$OVERLAY"
+
+      - name: Aplica os manifestos
+        run: kubectl apply -k "k8s/overlays/${AMBIENTE}"
+
+      - name: Aguarda rollout
+        run: kubectl -n "$NAMESPACE" rollout status deployment/oficina-execution-service --timeout=300s
+
+      # Catalogo de demonstracao: so se a tabela estiver vazia (um redeploy nao devolve o estoque ao inicial).
+      - name: Carrega o catalogo de pecas de demonstracao
+        run: |
+          TABELA="oficina-${AMBIENTE}-pecas"
+          EXISTENTES=$(aws dynamodb scan --table-name "$TABELA" --select COUNT --query Count --output text)
+          if [ "$EXISTENTES" = "0" ]; then
+            bash scripts/carregar-seed-pecas.sh "$AMBIENTE"
+          else
+            echo "Tabela $TABELA ja tem $EXISTENTES pecas; seed nao recarregado."
+          fi
+
+      - name: Evidencias do deploy
+        if: always()
+        run: |
+          kubectl -n "$NAMESPACE" get deploy,pods,svc,ingress,hpa -l app=oficina-execution-service -o wide || true

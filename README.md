@@ -6,8 +6,9 @@ Tech Challenge SOAT 13, Fase 4: um dos três microsserviços que substituem o mo
 
 > **Status:** Passo 4, entregas E1 e E2 — **estoque de peças** (catálogo, entrada/saída, consulta
 > interna de preços, `ReservarPecas`/`LiberarReserva`) e **fila, diagnóstico e execução** (endpoints do
-> mecânico e os comandos da Saga), tudo no DynamoDB. Infraestrutura (`infra/`, tabelas e filas na AWS)
-> e o deploy ficam para a entrega 11: hoje o serviço só roda localmente.
+> mecânico e os comandos da Saga), tudo no DynamoDB. A infraestrutura (`infra/`: tabelas, fila, ECR,
+> IRSA) e o deploy têm código e pipeline prontos e **nunca foram aplicados** (a AWS só sobe no dia da
+> gravação do vídeo).
 
 ## Responsabilidade
 
@@ -77,7 +78,7 @@ atropelam (a segunda recebe `409`).
   `oficina-<env>-execution-controle` (TTL de 7 dias em `expiraEm`). O publicador lê o GSI esparso
   `outbox-pendente` e uma concessão (`LOCK#outbox`) garante uma réplica por vez, no lugar do
   advisory lock do PostgreSQL usado no OS e no Billing.
-- **Tabelas** (criadas pelo Terraform do `infra/` na entrega 11; localmente por `scripts/criar-tabelas-local.sh`):
+- **Tabelas** (criadas pelo Terraform do [`infra/`](infra/README.md); localmente por `scripts/criar-tabelas-local.sh`):
   `oficina-<env>-pecas`, `-reservas`, `-execucoes` e `-execution-controle`.
 
 ## Arquitetura e decisões
@@ -177,7 +178,8 @@ relatório.
 | `qualidade` | PR e push | SonarCloud com quality gate bloqueante (exige o secret `SONAR_TOKEN`) |
 | `validacao` | PR e push | `kubectl kustomize` dos overlays `hml` e `prd` |
 | `guard` | PR para `homologacao`/`master` | Fluxo `feature/*` → `desenvolvimento` → `homologacao` → `master` |
-| `build`, `deploy` | *(Passo 2/4)* | Imagem no ECR e deploy no EKS, junto com o `infra/` do serviço |
+| `build`, `deploy` | push em `homologacao`/`master`, ou *Run workflow* | Imagem no ECR (`oficina-execution-service-<env>`), Secrets, `kubectl apply -k` do overlay, rollout e — se a tabela de peças estiver vazia — o catálogo de demonstração |
+| *Infra (Execution)* | *Run workflow* (`plan`/`apply`/`destroy`); em PR só `fmt`/`validate` | Terraform de [`infra/`](infra/README.md) |
 
 Status checks obrigatórios em `master` e `homologacao`: `testes`, `qualidade`, `validacao`, `guard`.
 
