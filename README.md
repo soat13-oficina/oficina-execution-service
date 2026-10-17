@@ -131,21 +131,17 @@ um token emitido pelo OS rodando localmente é aceito aqui.
 
 ### Com DynamoDB e filas (LocalStack)
 
-O LocalStack do `docker-compose` do `oficina-app` só liga o SQS (`SERVICES: sqs`); a Execution precisa
-também do DynamoDB, e o compose passa a ligá-lo na entrega 10 (Execution extraída do OS). Até lá, suba
-o mesmo LocalStack (4.14.0, com o script que cria as filas da Saga) por fora do compose — ver
-`docs/arquitetura/mensageria-local.md` no `oficina-app`:
+O LocalStack do `docker-compose` do `oficina-app` já liga SQS e DynamoDB e, ao subir, cria as filas da Saga
+e as tabelas `oficina-local-*` (`scripts/localstack/` lá). Não precisa de AWS CLI para isso:
 
 ```sh
-docker run --rm -d --name oficina_localstack -p 4566:4566 -e SERVICES=sqs,dynamodb \
-  -v "$PWD/../oficina-app/scripts/localstack:/etc/localstack/init/ready.d:ro" localstack/localstack:4.14.0
+cd ../oficina-app && docker compose up -d localstack
 ```
 
-Depois, com o AWS CLI e o `jq`:
+Para carregar o catálogo de demonstração (precisa de AWS CLI e `jq`; as tabelas já existem):
 
 ```sh
 export AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
-scripts/criar-tabelas-local.sh            # tabelas oficina-local-*
 scripts/carregar-seed-pecas.sh local      # 10 peças de demonstração (uma sem estoque)
 
 AWS_ENDPOINT_URL_DYNAMODB=$AWS_ENDPOINT_URL AWS_ENDPOINT_URL_SQS=$AWS_ENDPOINT_URL \
