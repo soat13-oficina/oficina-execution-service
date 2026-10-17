@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.dynamodb.model.Update;
  * liberar     disponivel += q, reservada -= q   condicao: reservada >= q
  * entrada     estoque += q,    disponivel += q  condicao: a peca existe
  * saida       estoque -= q,    disponivel -= q  condicao: disponivel >= q
+ * consumir    estoque -= q,    reservada -= q   condicao: reservada >= q e estoque >= q
  * </pre>
  */
 final class ExpressoesEstoque {
@@ -50,6 +51,16 @@ final class ExpressoesEstoque {
                 .key(Map.of(CHAVE_PECA, texto(pecaId)))
                 .updateExpression("SET quantidadeDisponivel = quantidadeDisponivel + :q, quantidadeReservada = quantidadeReservada - :q ADD versao :um")
                 .conditionExpression("quantidadeReservada >= :q")
+                .expressionAttributeValues(Map.of(":q", numero(quantidade), ":um", numero(1)))
+                .build();
+    }
+
+    static Update consumirPeca(String tabela, String pecaId, int quantidade) {
+        return Update.builder()
+                .tableName(tabela)
+                .key(Map.of(CHAVE_PECA, texto(pecaId)))
+                .updateExpression("SET quantidadeEstoque = quantidadeEstoque - :q, quantidadeReservada = quantidadeReservada - :q ADD versao :um")
+                .conditionExpression("quantidadeReservada >= :q AND quantidadeEstoque >= :q")
                 .expressionAttributeValues(Map.of(":q", numero(quantidade), ":um", numero(1)))
                 .build();
     }
@@ -93,6 +104,22 @@ final class ExpressoesEstoque {
                 .expressionAttributeNames(Map.of("#status", "status"))
                 .expressionAttributeValues(Map.of(
                         ":liberada", texto(ReservaPeca.Status.LIBERADA.name()),
+                        ":reservada", texto(ReservaPeca.Status.RESERVADA.name()),
+                        ":agora", texto(agora.toString())))
+                .build();
+    }
+
+    static Update consumirReserva(String tabela, ReservaPeca reserva, Instant agora) {
+        return Update.builder()
+                .tableName(tabela)
+                .key(Map.of(
+                        CHAVE_RESERVA_OS, texto(reserva.ordemDeServicoId().toString()),
+                        CHAVE_PECA, texto(reserva.pecaInsumoId())))
+                .updateExpression("SET #status = :consumida, atualizadaEm = :agora")
+                .conditionExpression("#status = :reservada")
+                .expressionAttributeNames(Map.of("#status", "status"))
+                .expressionAttributeValues(Map.of(
+                        ":consumida", texto(ReservaPeca.Status.CONSUMIDA.name()),
                         ":reservada", texto(ReservaPeca.Status.RESERVADA.name()),
                         ":agora", texto(agora.toString())))
                 .build();

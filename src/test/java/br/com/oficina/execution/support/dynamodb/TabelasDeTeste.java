@@ -29,6 +29,16 @@ public final class TabelasDeTeste {
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .attributeDefinitions(atributo("ordemServicoId"), atributo("pecaId"))
                 .keySchema(chave("ordemServicoId", KeyType.HASH), chave("pecaId", KeyType.RANGE)));
+        // Execucoes: um documento por OS; o GSI e a fila do mecanico (etapa + ordem de entrada na etapa).
+        dynamo.createTable(r -> r.tableName(prefixo + "execucoes")
+                .billingMode(BillingMode.PAY_PER_REQUEST)
+                .attributeDefinitions(atributo("ordemServicoId"), atributo("etapa"), atributo("entrouNaEtapaEm"))
+                .keySchema(chave("ordemServicoId", KeyType.HASH))
+                .globalSecondaryIndexes(GlobalSecondaryIndex.builder()
+                        .indexName("fila-por-etapa")
+                        .keySchema(chave("etapa", KeyType.HASH), chave("entrouNaEtapaEm", KeyType.RANGE))
+                        .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                        .build()));
         dynamo.createTable(r -> r.tableName(prefixo + "execution-controle")
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .attributeDefinitions(atributo("pk"), atributo("pendente"), atributo("criadoEm"))

@@ -5,6 +5,7 @@ public final class Tabelas {
 
     public static final String PECAS = "pecas";
     public static final String RESERVAS = "reservas";
+    public static final String EXECUCOES = "execucoes";
     /** Idempotencia ({@code MSG#}) e outbox ({@code OUTBOX#}). */
     public static final String CONTROLE = "execution-controle";
     /** GSI esparso do controle: so as mensagens do outbox ainda nao publicadas. */
