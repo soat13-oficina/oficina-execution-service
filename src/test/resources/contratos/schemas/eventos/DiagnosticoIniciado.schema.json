@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/DiagnosticoIniciado.schema.json",
+  "title": "DiagnosticoIniciado",
+  "description": "Mecanico iniciou o diagnostico (POST /execucoes/{ordemServicoId}/diagnostico/iniciar).",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-execution-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": null,
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "DiagnosticoIniciado"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-execution-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "mecanico",
+        "iniciadoEm"
+      ],
+      "properties": {
+        "mecanico": {
+          "$ref": "../comuns.schema.json#/$defs/mecanico"
+        },
+        "iniciadoEm": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000013",
+      "type": "DiagnosticoIniciado",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-execution-service",
+      "payload": {
+        "mecanico": {
+          "id": "mecanico@oficina.com",
+          "nome": "Joao Mecanico"
+        },
+        "iniciadoEm": "2026-10-15T13:10:00Z"
+      }
+    }
+  ]
+}

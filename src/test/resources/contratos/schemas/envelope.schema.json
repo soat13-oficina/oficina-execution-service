@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/envelope.schema.json",
+  "title": "Envelope comum de comandos e eventos da Saga",
+  "description": "Toda mensagem trafegada nas filas SQS FIFO usa este envelope. Leitor tolerante: campos desconhecidos sao ignorados.",
+  "type": "object",
+  "required": [
+    "messageId",
+    "type",
+    "version",
+    "sagaId",
+    "ordemServicoId",
+    "correlationId",
+    "occurredAt",
+    "source",
+    "payload"
+  ],
+  "properties": {
+    "messageId": {
+      "$ref": "comuns.schema.json#/$defs/uuid",
+      "description": "Id unico da mensagem. Tambem e o MessageDeduplicationId do SQS e a chave de idempotencia do consumidor. Comando reenviado por timeout ganha messageId novo."
+    },
+    "type": {
+      "type": "string",
+      "description": "Nome do comando ou evento. Tambem vai como message attribute \"type\".",
+      "enum": [
+        "EnfileirarDiagnostico",
+        "ReabrirDiagnostico",
+        "ReservarPecas",
+        "EnfileirarExecucao",
+        "LiberarReserva",
+        "CancelarExecucao",
+        "GerarOrcamento",
+        "SolicitarPagamento",
+        "ReverterAprovacao",
+        "CancelarOrcamento",
+        "EstornarPagamento",
+        "DiagnosticoEnfileirado",
+        "DiagnosticoIniciado",
+        "DiagnosticoConcluido",
+        "DiagnosticoReaberto",
+        "PecasReservadas",
+        "ReservaFalhou",
+        "ExecucaoEnfileirada",
+        "ExecucaoIniciada",
+        "ExecucaoConcluida",
+        "ExecucaoFalhou",
+        "ReservaLiberada",
+        "ExecucaoCancelada",
+        "OrcamentoGerado",
+        "OrcamentoFalhou",
+        "OrcamentoAprovado",
+        "OrcamentoRejeitado",
+        "AprovacaoRevertida",
+        "OrcamentoCancelado",
+        "PagamentoSolicitado",
+        "PagamentoConfirmado",
+        "PagamentoRecusado",
+        "PagamentoExpirado",
+        "PagamentoEstornado",
+        "EstornoFalhou"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Versao do contrato deste tipo. Mudanca incompativel incrementa."
+    },
+    "sagaId": {
+      "$ref": "comuns.schema.json#/$defs/uuid"
+    },
+    "ordemServicoId": {
+      "$ref": "comuns.schema.json#/$defs/uuid",
+      "description": "Tambem e o MessageGroupId do SQS: ordem garantida por OS."
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "x-request-id gerado pelo API Gateway, carregado de ponta a ponta."
+    },
+    "causationId": {
+      "anyOf": [
+        {
+          "$ref": "comuns.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "messageId do comando que originou este evento; null para comandos e eventos espontaneos."
+    },
+    "occurredAt": {
+      "$ref": "comuns.schema.json#/$defs/dataHora"
+    },
+    "source": {
+      "enum": [
+        "oficina-os-service",
+        "oficina-billing-service",
+        "oficina-execution-service"
+      ],
+      "description": "Servico que produziu a mensagem."
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

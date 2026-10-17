@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/PagamentoRecusado.schema.json",
+  "title": "PagamentoRecusado",
+  "description": "Pagamento recusado no Mercado Pago. A cobranca e encerrada (preferencia expirada).",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-billing-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": null,
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "PagamentoRecusado"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-billing-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "pagamentoId",
+        "motivo"
+      ],
+      "properties": {
+        "pagamentoId": {
+          "$ref": "../comuns.schema.json#/$defs/uuid"
+        },
+        "mpPaymentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "motivo": {
+          "$ref": "../comuns.schema.json#/$defs/motivo"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000032",
+      "type": "PagamentoRecusado",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-billing-service",
+      "payload": {
+        "pagamentoId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        "mpPaymentId": "1325874302",
+        "motivo": "cc_rejected_other_reason"
+      }
+    }
+  ]
+}

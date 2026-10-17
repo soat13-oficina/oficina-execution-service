@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/comuns.schema.json",
+  "title": "Definicoes comuns dos contratos de mensagens",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "dataHora": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 em UTC (sufixo Z)"
+    },
+    "dinheiro": {
+      "type": "string",
+      "pattern": "^\\d{1,10}\\.\\d{2}$",
+      "description": "Valor em reais como texto com duas casas decimais (evita arredondamento de ponto flutuante). Ex.: \"350.00\""
+    },
+    "numeroOrdemServico": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "pecaInsumoId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "motivo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "itemPeca": {
+      "type": "object",
+      "required": [
+        "pecaInsumoId",
+        "quantidade"
+      ],
+      "properties": {
+        "pecaInsumoId": {
+          "$ref": "#/$defs/pecaInsumoId"
+        },
+        "quantidade": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "servico": {
+      "type": "object",
+      "required": [
+        "descricao",
+        "valorMaoDeObra"
+      ],
+      "properties": {
+        "descricao": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "valorMaoDeObra": {
+          "$ref": "#/$defs/dinheiro"
+        }
+      }
+    },
+    "mecanico": {
+      "type": "object",
+      "required": [
+        "id",
+        "nome"
+      ],
+      "description": "Funcionario autenticado que executou a acao (claims do JWT)",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nome": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "veiculo": {
+      "type": "object",
+      "required": [
+        "placa",
+        "marca",
+        "modelo"
+      ],
+      "properties": {
+        "placa": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}\\d[A-Z0-9]\\d{2}$"
+        },
+        "marca": {
+          "type": "string"
+        },
+        "modelo": {
+          "type": "string"
+        },
+        "ano": {
+          "type": "integer",
+          "minimum": 1886
+        }
+      }
+    },
+    "cliente": {
+      "type": "object",
+      "required": [
+        "id",
+        "nome",
+        "documento",
+        "tipo"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "nome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documento": {
+          "type": "string",
+          "pattern": "^\\d{11}$|^\\d{14}$",
+          "description": "CPF ou CNPJ so com digitos"
+        },
+        "tipo": {
+          "enum": [
+            "PF",
+            "PJ"
+          ]
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "email"
+        }
+      }
+    },
+    "funcionario": {
+      "type": "object",
+      "required": [
+        "id",
+        "nome"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "nome": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pecaFaltante": {
+      "type": "object",
+      "required": [
+        "pecaInsumoId",
+        "solicitada",
+        "disponivel"
+      ],
+      "properties": {
+        "pecaInsumoId": {
+          "$ref": "#/$defs/pecaInsumoId"
+        },
+        "solicitada": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disponivel": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

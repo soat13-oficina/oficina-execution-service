@@ -16,9 +16,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ServiceTokenFilter serviceTokenFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ServiceTokenFilter serviceTokenFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.serviceTokenFilter = serviceTokenFilter;
     }
 
     @Bean
@@ -34,10 +36,15 @@ public class SecurityConfig {
                         // Em nuvem o management responde na 8081, fora do Service e do Ingress;
                         // o permitAll serve ao desenvolvimento local, onde tudo vive na 8080.
                         .requestMatchers("/actuator/prometheus").permitAll()
+                        // Chamadas entre servicos: fora do gateway, autenticadas pelo X-Service-Token.
+                        .requestMatchers("/internal/**").permitAll()
+                        // Catalogo e estoque sao do balcao e da oficina: cliente nao mexe nem enxerga.
+                        .requestMatchers("/pecas-insumos/**").hasRole("FUNCIONARIO")
                         .anyRequest().authenticated())
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Sem token valido: 401 (e nao o 403 padrao), para o cliente saber que precisa autenticar.
                 .exceptionHandling(erros -> erros.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .addFilterBefore(serviceTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

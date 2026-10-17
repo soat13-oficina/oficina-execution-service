@@ -9,9 +9,42 @@ jwt:
   # O default so serve ao desenvolvimento local.
   secret: ${JWT_SECRET:SUA_CHAVE_SECRETA_MUITO_SEGURA_E_LONGA_PARA_O_JWT_DA_OFICINA_2026}
 
+seguranca:
+  # X-Service-Token das chamadas internas que este servico RECEBE (/internal/**, segredo
+  # oficina/<env>/service-token). Vazio = recusa todas.
+  service-token: ${SERVICE_TOKEN:}
+
+# Banco do servico (ADR 0006): tabelas oficina-<ambiente>-<nome>, criadas pelo Terraform do infra/
+# (localmente, por scripts/criar-tabelas-local.sh). Credenciais por IRSA; no LocalStack, as
+# variaveis AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY e o endpoint abaixo.
+dynamodb:
+  ambiente: ${AMBIENTE:local}
+  endpoint: ${AWS_ENDPOINT_URL_DYNAMODB:}
+  regiao: ${AWS_REGION:us-east-1}
+
+mensageria:
+  # source do envelope: nome logico do servico (docs/arquitetura/convencoes-de-nomes.md do OS Service).
+  servico: oficina-execution-service
+  outbox:
+    agendamento-habilitado: true
+    intervalo-ms: ${MENSAGERIA_OUTBOX_INTERVALO_MS:1000}
+    max-tentativas: ${MENSAGERIA_OUTBOX_MAX_TENTATIVAS:5}
+    lote: 100
+  # SQS FIFO (ADR 0005): le execution-commands, publica em os-saga-replies.
+  # Nome fisico: oficina-<ambiente>-<fila>.fifo.
+  sqs:
+    habilitado: ${MENSAGERIA_SQS_HABILITADO:false}
+    consumo: execution-commands
+    ambiente: ${AMBIENTE:local}
+    endpoint: ${AWS_ENDPOINT_URL_SQS:}
+    regiao: ${AWS_REGION:us-east-1}
+    espera: PT20S
+    max-mensagens: 10
+
 # Health checks dos probes do Kubernetes e do HEALTHCHECK do Dockerfile:
 #   /actuator/health/liveness  - processo vivo
-#   /actuator/health/readiness - pronto para receber trafego (o DynamoDB entra aqui no Passo 4)
+#   /actuator/health/readiness - pronto para receber trafego; em nuvem o overlay acrescenta o
+#                                DynamoDB (MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE)
 # Em nuvem o management sobe na 8081 (MANAGEMENT_SERVER_PORT), fora do Service e do Ingress.
 management:
   endpoints:
