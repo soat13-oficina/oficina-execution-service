@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/AprovacaoRevertida.schema.json",
+  "title": "AprovacaoRevertida",
+  "description": "Confirmacao da compensacao: orcamento de volta a AGUARDANDO_APROVACAO.",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-billing-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": "ReverterAprovacao",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "AprovacaoRevertida"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-billing-service"
+    },
+    "causationId": {
+      "$ref": "../comuns.schema.json#/$defs/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "orcamentoId"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comuns.schema.json#/$defs/uuid"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000028",
+      "type": "AprovacaoRevertida",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": "00000000-0000-4000-8000-000000000009",
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-billing-service",
+      "payload": {
+        "orcamentoId": "9d2c4e6f-8a1b-4c3d-9e5f-7a6b5c4d3e2f"
+      }
+    }
+  ]
+}

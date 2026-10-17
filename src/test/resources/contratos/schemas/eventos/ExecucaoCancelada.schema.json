@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/ExecucaoCancelada.schema.json",
+  "title": "ExecucaoCancelada",
+  "description": "Confirmacao da compensacao: execucao encerrada (etapa CANCELADA).",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-execution-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": "CancelarExecucao",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "ExecucaoCancelada"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-execution-service"
+    },
+    "causationId": {
+      "$ref": "../comuns.schema.json#/$defs/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "canceladaEm"
+      ],
+      "properties": {
+        "canceladaEm": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000023",
+      "type": "ExecucaoCancelada",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": "00000000-0000-4000-8000-000000000006",
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-execution-service",
+      "payload": {
+        "canceladaEm": "2026-10-15T14:31:00Z"
+      }
+    }
+  ]
+}

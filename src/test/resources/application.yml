@@ -1,5 +1,20 @@
 jwt:
   secret: chave-secreta-de-teste-para-rodar-os-testes-unitarios-2026
 
+seguranca:
+  service-token: token-de-servico-de-teste
+
+# Sem AWS: o cliente do DynamoDB existe mas so abre conexao na primeira chamada, e os testes que
+# precisam de tabelas de verdade usam o LocalStack (Testcontainers) ou duplos escritos a mao.
+dynamodb:
+  ambiente: teste
+  regiao: us-east-1
+
+# Os testes chamam o publicador do outbox direto; o agendamento concorreria com eles.
+mensageria:
+  servico: oficina-execution-service
+  outbox:
+    agendamento-habilitado: false
+
 observabilidade:
   ambiente: teste

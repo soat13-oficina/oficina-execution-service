@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/comandos/EnfileirarDiagnostico.schema.json",
+  "title": "EnfileirarDiagnostico",
+  "description": "Coloca a OS recem-aberta na fila de diagnostico da oficina.",
+  "x-categoria": "comando",
+  "x-fila": "oficina-<env>-execution-commands.fifo",
+  "x-produtor": "oficina-os-service",
+  "x-consumidor": "oficina-execution-service",
+  "x-respostas": [
+    "DiagnosticoEnfileirado"
+  ],
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "EnfileirarDiagnostico"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-os-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "numeroOrdemServico",
+        "veiculo",
+        "abertaEm"
+      ],
+      "properties": {
+        "numeroOrdemServico": {
+          "$ref": "../comuns.schema.json#/$defs/numeroOrdemServico"
+        },
+        "veiculo": {
+          "$ref": "../comuns.schema.json#/$defs/veiculo"
+        },
+        "servicosPrevistos": {
+          "type": "array",
+          "items": {
+            "$ref": "../comuns.schema.json#/$defs/servico"
+          },
+          "description": "Previsao informada na abertura (opcional), ponto de partida do mecanico"
+        },
+        "pecasPrevistas": {
+          "type": "array",
+          "items": {
+            "$ref": "../comuns.schema.json#/$defs/itemPeca"
+          }
+        },
+        "abertaEm": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000001",
+      "type": "EnfileirarDiagnostico",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-os-service",
+      "payload": {
+        "numeroOrdemServico": "OS-20261015-0042",
+        "veiculo": {
+          "placa": "ABC1D23",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2020
+        },
+        "servicosPrevistos": [],
+        "pecasPrevistas": [],
+        "abertaEm": "2026-10-15T13:00:00Z"
+      }
+    }
+  ]
+}

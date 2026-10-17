@@ -19,6 +19,8 @@
         <java.version>21</java.version>
         <jacoco.version>0.8.13</jacoco.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
+        <aws-java-sdk-v2.version>2.46.6</aws-java-sdk-v2.version>
         <!-- SonarCloud: organizacao e chave seguem o padrao da importacao pelo GitHub.
              Ajustar aqui se o projeto for criado com outra chave. -->
         <sonar.organization>soat13-oficina</sonar.organization>
@@ -27,6 +29,25 @@
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <sonar.coverage.exclusions>**/*Application.java</sonar.coverage.exclusions>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-java-sdk-v2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -74,6 +95,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- DynamoDB (banco do servico, ADR 0006) e SQS (Saga, ADR 0005): AWS SDK v2 puro, como no Billing. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>dynamodb-enhanced</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -82,6 +113,23 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Teste de contrato das mensagens contra os JSON Schemas copiados do OS Service. -->
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>3.0.8</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

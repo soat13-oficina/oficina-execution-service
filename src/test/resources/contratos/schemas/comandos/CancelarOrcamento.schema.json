@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/comandos/CancelarOrcamento.schema.json",
+  "title": "CancelarOrcamento",
+  "description": "Compensacao de GerarOrcamento: orcamento CANCELADO; pagamento PENDENTE e cancelado e a preferencia expirada no MP.",
+  "x-categoria": "comando de compensacao",
+  "x-fila": "oficina-<env>-billing-commands.fifo",
+  "x-produtor": "oficina-os-service",
+  "x-consumidor": "oficina-billing-service",
+  "x-respostas": [
+    "OrcamentoCancelado"
+  ],
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "CancelarOrcamento"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-os-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "orcamentoId",
+        "motivo"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comuns.schema.json#/$defs/uuid"
+        },
+        "motivo": {
+          "$ref": "../comuns.schema.json#/$defs/motivo"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000010",
+      "type": "CancelarOrcamento",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-os-service",
+      "payload": {
+        "orcamentoId": "9d2c4e6f-8a1b-4c3d-9e5f-7a6b5c4d3e2f",
+        "motivo": "PAGAMENTO_RECUSADO"
+      }
+    }
+  ]
+}
