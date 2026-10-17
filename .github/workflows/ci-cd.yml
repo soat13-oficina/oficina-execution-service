@@ -253,6 +253,24 @@ jobs:
       - name: Aguarda rollout
         run: kubectl -n "$NAMESPACE" rollout status deployment/oficina-execution-service --timeout=300s
 
+      # O ALB do ambiente (IngressGroup, ADR 0008) e um so para os tres servicos: o hostname vem do status
+      # do Ingress deste servico e vai para o SSM, de onde o oficina-lambda-auth le (mesmo valor nos tres).
+      - name: Publica a URL do ALB no SSM
+        run: |
+          for TENTATIVA in $(seq 1 40); do
+            ALB=$(kubectl -n "$NAMESPACE" get ingress oficina-execution-service               -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "$ALB" ]; then
+              aws ssm put-parameter --name "/oficina/${AMBIENTE}/alb-url"                 --type String --overwrite --value "http://${ALB}"
+              echo "ALB (${AMBIENTE}): http://${ALB}"
+              exit 0
+            fi
+            echo "Tentativa $TENTATIVA: o Ingress ainda nao tem hostname (o controller leva ~3 min)."
+            sleep 10
+          done
+          echo "::error::O Ingress oficina-execution-service nao ganhou hostname em ~7 min. O AWS Load Balancer Controller esta instalado (oficina-infra-k8s)?"
+          kubectl -n "$NAMESPACE" describe ingress oficina-execution-service
+          exit 1
+
       # Catalogo de demonstracao: so se a tabela estiver vazia (um redeploy nao devolve o estoque ao inicial).
       - name: Carrega o catalogo de pecas de demonstracao
         run: |
