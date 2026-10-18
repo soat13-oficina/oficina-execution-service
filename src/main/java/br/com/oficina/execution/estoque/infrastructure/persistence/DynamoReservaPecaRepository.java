@@ -67,4 +67,14 @@ public class DynamoReservaPecaRepository implements ReservaPecaRepository {
                     ExpressoesEstoque.emTransacao(ExpressoesEstoque.liberarReserva(nomeTabelaReservas, reserva, agora)));
         }
     }
+
+    @Override
+    public void consumir(List<ReservaPeca> ativas, Instant agora) {
+        for (ReservaPeca reserva : ativas) {
+            unidade.adicionar("peca#" + reserva.pecaInsumoId(),
+                    ExpressoesEstoque.emTransacao(ExpressoesEstoque.consumirPeca(nomeTabelaPecas, reserva.pecaInsumoId(), reserva.quantidade())));
+            unidade.adicionar("reserva#" + reserva.pecaInsumoId(),
+                    ExpressoesEstoque.emTransacao(ExpressoesEstoque.consumirReserva(nomeTabelaReservas, reserva, agora)));
+        }
+    }
 }

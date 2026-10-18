@@ -1,2 +1,5 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# Scripts executados em shell Linux (CI, containers): sempre LF, mesmo no checkout do Windows.
+*.sh text eol=lf

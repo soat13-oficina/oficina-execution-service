@@ -38,8 +38,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/prometheus").permitAll()
                         // Chamadas entre servicos: fora do gateway, autenticadas pelo X-Service-Token.
                         .requestMatchers("/internal/**").permitAll()
-                        // Catalogo e estoque sao do balcao e da oficina: cliente nao mexe nem enxerga.
-                        .requestMatchers("/pecas-insumos/**").hasRole("FUNCIONARIO")
+                        // Catalogo, estoque e fila de execucao sao da oficina: cliente nao mexe nem enxerga.
+                        .requestMatchers("/pecas-insumos/**", "/execucoes/**").hasRole("FUNCIONARIO")
                         .anyRequest().authenticated())
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Sem token valido: 401 (e nao o 403 padrao), para o cliente saber que precisa autenticar.

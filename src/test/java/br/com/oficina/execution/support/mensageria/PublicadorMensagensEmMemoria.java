@@ -34,6 +34,10 @@ public class PublicadorMensagensEmMemoria implements PublicadorMensagens {
         publicadas.add(new Publicada(fila, envelope));
     }
 
+    public void limpar() {
+        publicadas.clear();
+    }
+
     public List<Publicada> publicadas() {
         return List.copyOf(publicadas);
     }

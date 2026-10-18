@@ -64,8 +64,8 @@ class ExecutionServiceApplicationTest {
 
     @Test
     void comTokenValidoPassaDaSegurancaECarregaCorrelationId() throws Exception {
-        // Ainda nao ha endpoints de negocio: 404 prova que a seguranca deixou passar.
-        mvc.perform(get("/execucoes")
+        // Rota que nao existe: 404 (e nao 401/403) prova que a seguranca deixou passar.
+        mvc.perform(get("/rota-que-nao-existe")
                         .header("Authorization", "Bearer " + TokensDeTeste.cliente())
                         .header("X-Request-Id", "req-1"))
                 .andExpect(status().isNotFound())

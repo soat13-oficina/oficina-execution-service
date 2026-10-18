@@ -3,6 +3,8 @@ package br.com.oficina.execution.common.infrastructure.mensageria;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -39,6 +41,9 @@ public class OutboxDynamo {
 
     /** Desempata mensagens gravadas no mesmo microssegundo, na ordem em que foram publicadas. */
     private final AtomicInteger sequencia = new AtomicInteger();
+
+    /** Mensagens que esgotaram as tentativas desde a subida (MetricasOutbox): esgotada sai do indice. */
+    private final AtomicLong esgotadas = new AtomicLong();
 
     private final DynamoDbClient dynamo;
     private final String tabela;
@@ -102,6 +107,47 @@ public class OutboxDynamo {
                 .toList();
     }
 
+    /** Quantas mensagens esperam entrega (itens do indice esparso). Para a metrica; pagina ate o fim. */
+    public long contarPendentes() {
+        long total = 0;
+        Map<String, AttributeValue> inicio = null;
+        do {
+            Map<String, AttributeValue> a = inicio;
+            QueryResponse resposta = dynamo.query(r -> {
+                r.tableName(tabela)
+                        .indexName(Tabelas.INDICE_OUTBOX_PENDENTE)
+                        .keyConditionExpression("pendente = :um")
+                        .expressionAttributeValues(Map.of(":um", Atributos.texto("1")))
+                        .select("COUNT");
+                if (a != null) {
+                    r.exclusiveStartKey(a);
+                }
+            });
+            total += resposta.count();
+            inicio = resposta.hasLastEvaluatedKey() ? resposta.lastEvaluatedKey() : null;
+        } while (inicio != null);
+        return total;
+    }
+
+    /** Quando foi gravada a pendente mais antiga; vazio se nao ha nenhuma. */
+    public Optional<Instant> maisAntigaPendente() {
+        QueryResponse resposta = dynamo.query(r -> r.tableName(tabela)
+                .indexName(Tabelas.INDICE_OUTBOX_PENDENTE)
+                .keyConditionExpression("pendente = :um")
+                .expressionAttributeValues(Map.of(":um", Atributos.texto("1")))
+                .scanIndexForward(true)
+                .limit(1));
+        return resposta.items().stream().findFirst().map(i -> {
+            // criadoEm = "<instante com microssegundos>Z-<sequencia>": o instante e o que vem antes do ultimo hifen.
+            String criadoEm = i.get("criadoEm").s();
+            return Instant.parse(criadoEm.substring(0, criadoEm.lastIndexOf('-')));
+        });
+    }
+
+    public long esgotadasDesdeAPartida() {
+        return esgotadas.get();
+    }
+
     /** Sai do indice e guarda quando foi publicada. */
     public void marcarPublicada(String pk) {
         dynamo.updateItem(r -> r.tableName(tabela)
@@ -126,5 +172,8 @@ public class OutboxDynamo {
                 .key(Map.of("pk", Atributos.texto(pk)))
                 .updateExpression(expressao)
                 .expressionAttributeValues(valores));
+        if (esgotada) {
+            esgotadas.incrementAndGet();
+        }
     }
 }

@@ -4,10 +4,11 @@ Execution Service da oficina mecânica — **fila, diagnóstico, execução e es
 Tech Challenge SOAT 13, Fase 4: um dos três microsserviços que substituem o monólito
 `oficina-app`.
 
-> **Status:** Passo 4, entrega E1 — **estoque de peças** no DynamoDB (catálogo, entrada/saída,
-> consulta interna de preços e os passos `ReservarPecas`/`LiberarReserva` da Saga). A fila,
-> o diagnóstico e a execução chegam na E2. Infraestrutura (`infra/`, tabelas e filas na AWS) e o
-> deploy ficam para a E4: hoje o serviço só roda localmente.
+> **Status:** Passo 4, entregas E1 e E2 — **estoque de peças** (catálogo, entrada/saída, consulta
+> interna de preços, `ReservarPecas`/`LiberarReserva`) e **fila, diagnóstico e execução** (endpoints do
+> mecânico e os comandos da Saga), tudo no DynamoDB. A infraestrutura (`infra/`: tabelas, fila, ECR,
+> IRSA) e o deploy têm código e pipeline prontos e **nunca foram aplicados** (a AWS só sobe no dia da
+> gravação do vídeo).
 
 ## Responsabilidade
 
@@ -21,7 +22,7 @@ Tech Challenge SOAT 13, Fase 4: um dos três microsserviços que substituem o mo
 
 Banco: **DynamoDB** (o NoSQL exigido pela Fase 4).
 
-### O que já está implementado (E1)
+### O que já está implementado (E1 e E2)
 
 | Endpoint | Quem chama | Observação |
 |---|---|---|
@@ -30,9 +31,39 @@ Banco: **DynamoDB** (o NoSQL exigido pela Fase 4).
 | `POST /internal/pecas-insumos/consulta` | Billing (`X-Service-Token`) | [Contrato](https://github.com/soat13-oficina/oficina-app/blob/desenvolvimento/docs/contratos/rest-interno.md); não passa pelo API Gateway |
 | comando `ReservarPecas` → `PecasReservadas` / `ReservaFalhou` | OS Service (`execution-commands`) | Tudo ou nada, em **uma** transação do DynamoDB |
 | comando `LiberarReserva` → `ReservaLiberada` | OS Service (`execution-commands`) | Compensação; sem reserva, confirma com lista vazia |
+| `GET /execucoes[?etapa=]`, `GET /execucoes/{osId}` | Funcionário (JWT) | A fila (diagnóstico, depois execução) em ordem de chegada; ou uma etapa; ou o documento da OS |
+| `POST /execucoes/{osId}/diagnostico/iniciar` · `/diagnostico/concluir` | Mecânico (JWT) | Publicam `DiagnosticoIniciado` e `DiagnosticoConcluido` (serviços com mão de obra + peças, que precisam existir no catálogo): a Saga gera o orçamento sozinha |
+| `POST /execucoes/{osId}/iniciar` · `/concluir` · `/abortar` | Mecânico (JWT) | `ExecucaoIniciada`; `ExecucaoConcluida` (**baixa do estoque** as peças reservadas, na mesma transação); `ExecucaoFalhou` (a Saga estorna e libera as reservas) |
+| comandos `EnfileirarDiagnostico` → `DiagnosticoEnfileirado`, `ReabrirDiagnostico` → `DiagnosticoReaberto`, `EnfileirarExecucao` → `ExecucaoEnfileirada`, `CancelarExecucao` → `ExecucaoCancelada` | OS Service (`execution-commands`) | Idempotentes pelo estado; `CancelarExecucao` sempre confirma |
 
 Não existem `reservar`, `liberar-reserva` e `consumir` por HTTP (o `pecainsumo` do OS tinha): toda
-reserva tem uma OS dona e nasce de um comando da Saga. O consumo na conclusão do serviço chega na E2.
+reserva tem uma OS dona e nasce de um comando da Saga; o consumo acontece na conclusão da execução.
+
+### Etapas da execução
+
+```mermaid
+stateDiagram-v2
+    [*] --> AGUARDANDO_DIAGNOSTICO: EnfileirarDiagnostico
+    AGUARDANDO_DIAGNOSTICO --> EM_DIAGNOSTICO: mecânico inicia
+    EM_DIAGNOSTICO --> DIAGNOSTICO_CONCLUIDO: mecânico conclui
+    DIAGNOSTICO_CONCLUIDO --> AGUARDANDO_DIAGNOSTICO: ReabrirDiagnostico
+    DIAGNOSTICO_CONCLUIDO --> AGUARDANDO_EXECUCAO: EnfileirarExecucao
+    AGUARDANDO_EXECUCAO --> EM_EXECUCAO: mecânico inicia
+    EM_EXECUCAO --> CONCLUIDA: mecânico conclui (baixa o estoque)
+    EM_EXECUCAO --> ABORTADA: mecânico aborta
+    AGUARDANDO_DIAGNOSTICO --> CANCELADA: CancelarExecucao
+    EM_DIAGNOSTICO --> CANCELADA: CancelarExecucao
+    DIAGNOSTICO_CONCLUIDO --> CANCELADA: CancelarExecucao
+    AGUARDANDO_EXECUCAO --> CANCELADA: CancelarExecucao
+    CONCLUIDA --> [*]
+    ABORTADA --> [*]
+    CANCELADA --> [*]
+```
+
+A OS é um documento na tabela `execucoes` (veículo, previsão, diagnóstico, mecânicos e histórico de etapas
+aninhados). O GSI `fila-por-etapa` (`etapa` + `entrouNaEtapaEm`, texto de largura fixa para ordenar) é a
+fila do mecânico. Toda escrita condiciona a `versao` lida: duas ações simultâneas sobre a mesma OS não se
+atropelam (a segunda recebe `409`).
 
 ### Como o DynamoDB sustenta a Saga
 
@@ -47,8 +78,8 @@ reserva tem uma OS dona e nasce de um comando da Saga. O consumo na conclusão d
   `oficina-<env>-execution-controle` (TTL de 7 dias em `expiraEm`). O publicador lê o GSI esparso
   `outbox-pendente` e uma concessão (`LOCK#outbox`) garante uma réplica por vez, no lugar do
   advisory lock do PostgreSQL usado no OS e no Billing.
-- **Tabelas** (criadas pelo Terraform do `infra/` na E4; localmente por `scripts/criar-tabelas-local.sh`):
-  `oficina-<env>-pecas`, `-reservas` e `-execution-controle`.
+- **Tabelas** (criadas pelo Terraform do [`infra/`](infra/README.md); localmente por `scripts/criar-tabelas-local.sh`):
+  `oficina-<env>-pecas`, `-reservas`, `-execucoes` e `-execution-controle`.
 
 ## Arquitetura e decisões
 
@@ -80,8 +111,7 @@ Valida o JWT com o mesmo segredo do OS Service e da Lambda (`JWT_SECRET`,
 | `tipo = FUNCIONARIO` ou sem `tipo` | OS Service (`POST /api/auth/login`) | `ROLE_FUNCIONARIO` (+ `roles`, se houver) |
 | outro `tipo`, expirado, assinatura inválida | — | anônimo → `401` |
 
-Estoque (`/pecas-insumos/**`) exige `ROLE_FUNCIONARIO`; cliente recebe `403`. Diagnóstico e
-execução seguem a mesma regra quando chegarem (E2). `/internal/**` é público para o JWT e protegido
+Estoque (`/pecas-insumos/**`) e execução (`/execucoes/**`) exigem `ROLE_FUNCIONARIO`; cliente recebe `403`. `/internal/**` é público para o JWT e protegido
 pelo header `X-Service-Token` (segredo `oficina/<env>/service-token`, variável `SERVICE_TOKEN`; vazio
 recusa tudo). Públicos: `/actuator/health/**`, `/actuator/prometheus` (em nuvem só na porta 8081,
 fora do Ingress) e o Swagger.
@@ -101,21 +131,17 @@ um token emitido pelo OS rodando localmente é aceito aqui.
 
 ### Com DynamoDB e filas (LocalStack)
 
-O LocalStack do `docker-compose` do `oficina-app` só liga o SQS (`SERVICES: sqs`); a Execution precisa
-também do DynamoDB, e o compose passa a ligá-lo na entrega 10 (Execution extraída do OS). Até lá, suba
-o mesmo LocalStack (4.14.0, com o script que cria as filas da Saga) por fora do compose — ver
-`docs/arquitetura/mensageria-local.md` no `oficina-app`:
+O LocalStack do `docker-compose` do `oficina-app` já liga SQS e DynamoDB e, ao subir, cria as filas da Saga
+e as tabelas `oficina-local-*` (`scripts/localstack/` lá). Não precisa de AWS CLI para isso:
 
 ```sh
-docker run --rm -d --name oficina_localstack -p 4566:4566 -e SERVICES=sqs,dynamodb \
-  -v "$PWD/../oficina-app/scripts/localstack:/etc/localstack/init/ready.d:ro" localstack/localstack:4.14.0
+cd ../oficina-app && docker compose up -d localstack
 ```
 
-Depois, com o AWS CLI e o `jq`:
+Para carregar o catálogo de demonstração (precisa de AWS CLI e `jq`; as tabelas já existem):
 
 ```sh
 export AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
-scripts/criar-tabelas-local.sh            # tabelas oficina-local-*
 scripts/carregar-seed-pecas.sh local      # 10 peças de demonstração (uma sem estoque)
 
 AWS_ENDPOINT_URL_DYNAMODB=$AWS_ENDPOINT_URL AWS_ENDPOINT_URL_SQS=$AWS_ENDPOINT_URL \
@@ -135,8 +161,8 @@ O `scripts/seed-pecas.json` usa ids fixos, para os roteiros de demonstração re
 Roda os testes e o **gate do JaCoCo: mínimo de 80% de linhas e de branches no serviço
 inteiro** — o build falha abaixo disso. Sem Docker rodam os testes de unidade, de web, de
 contrato das mensagens (contra os JSON Schemas do OS Service) e os dos adapters com um duplo do
-`DynamoDbClient`; o `EstoqueDynamoLocalStackTest` (Testcontainers + LocalStack: expressões,
-transação, idempotência, corrida pelo último item, outbox → SQS) é ignorado e o CI o executa. Relatório em `target/site/jacoco/index.html` e como
+`DynamoDbClient`; o `EstoqueDynamoLocalStackTest` e `ExecucaoDynamoLocalStackTest` (Testcontainers + LocalStack: expressões,
+transação, idempotência, corridas, fila pelo GSI, outbox → SQS) são ignorados e o CI os executa. Relatório em `target/site/jacoco/index.html` e como
 artefato `jacoco-report` no CI. A análise do SonarCloud (job `qualidade`) usa o mesmo
 relatório.
 
@@ -148,7 +174,8 @@ relatório.
 | `qualidade` | PR e push | SonarCloud com quality gate bloqueante (exige o secret `SONAR_TOKEN`) |
 | `validacao` | PR e push | `kubectl kustomize` dos overlays `hml` e `prd` |
 | `guard` | PR para `homologacao`/`master` | Fluxo `feature/*` → `desenvolvimento` → `homologacao` → `master` |
-| `build`, `deploy` | *(Passo 2/4)* | Imagem no ECR e deploy no EKS, junto com o `infra/` do serviço |
+| `build`, `deploy` | push em `homologacao`/`master`, ou *Run workflow* | Imagem no ECR (`oficina-execution-service-<env>`), Secrets, `kubectl apply -k` do overlay, rollout e — se a tabela de peças estiver vazia — o catálogo de demonstração |
+| *Infra (Execution)* | *Run workflow* (`plan`/`apply`/`destroy`); em PR só `fmt`/`validate` | Terraform de [`infra/`](infra/README.md) |
 
 Status checks obrigatórios em `master` e `homologacao`: `testes`, `qualidade`, `validacao`, `guard`.
 

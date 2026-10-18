@@ -28,4 +28,10 @@ public interface ReservaPecaRepository {
 
     /** Devolve ao disponivel o que as reservas ativas seguravam e as marca como liberadas. */
     void liberar(List<ReservaPeca> ativas, Instant agora);
+
+    /**
+     * Baixa definitiva, na conclusao do servico: as pecas reservadas saem do estoque (o disponivel nao
+     * muda, pois ja estava descontado) e as reservas passam a consumidas.
+     */
+    void consumir(List<ReservaPeca> ativas, Instant agora);
 }

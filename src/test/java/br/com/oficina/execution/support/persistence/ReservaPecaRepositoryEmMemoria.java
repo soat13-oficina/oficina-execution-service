@@ -43,6 +43,16 @@ public class ReservaPecaRepositoryEmMemoria implements ReservaPecaRepository {
         }
     }
 
+    @Override
+    public void consumir(List<ReservaPeca> ativas, Instant agora) {
+        for (ReservaPeca reserva : new ArrayList<>(ativas)) {
+            pecas.consumir(reserva.pecaInsumoId(), reserva.quantidade());
+            reservas.put(chave(reserva.ordemDeServicoId(), reserva.pecaInsumoId()),
+                    new ReservaPeca(reserva.ordemDeServicoId(), reserva.pecaInsumoId(), reserva.quantidade(),
+                            ReservaPeca.Status.CONSUMIDA, reserva.criadaEm(), agora));
+        }
+    }
+
     public void limpar() {
         reservas.clear();
     }

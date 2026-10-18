@@ -33,6 +33,9 @@ criar "oficina-${ambiente}-reservas" \
   --attribute-definitions AttributeName=ordemServicoId,AttributeType=S AttributeName=pecaId,AttributeType=S \
   --key-schema AttributeName=ordemServicoId,KeyType=HASH AttributeName=pecaId,KeyType=RANGE
 
+# Execucoes: um documento por OS. O GSI e a fila do mecanico: etapa + ordem de entrada na etapa.
+criar "oficina-${ambiente}-execucoes"   --attribute-definitions AttributeName=ordemServicoId,AttributeType=S AttributeName=etapa,AttributeType=S AttributeName=entrouNaEtapaEm,AttributeType=S   --key-schema AttributeName=ordemServicoId,KeyType=HASH   --global-secondary-indexes 'IndexName=fila-por-etapa,KeySchema=[{AttributeName=etapa,KeyType=HASH},{AttributeName=entrouNaEtapaEm,KeyType=RANGE}],Projection={ProjectionType=ALL}'
+
 # Idempotencia (MSG#) e outbox (OUTBOX#). O GSI esparso so enxerga os itens com o atributo "pendente".
 criar "oficina-${ambiente}-execution-controle" \
   --attribute-definitions AttributeName=pk,AttributeType=S AttributeName=pendente,AttributeType=S AttributeName=criadoEm,AttributeType=S \

@@ -98,6 +98,12 @@ public class PecaInsumoRepositoryEmMemoria implements PecaInsumoRepository {
         ajustar(peca, peca.getQuantidadeEstoque(), peca.getQuantidadeReservada() + quantidade);
     }
 
+    /** A baixa definitiva: tira do estoque o que estava reservado (o disponivel nao muda). */
+    public void consumir(String id, int quantidade) {
+        PecaInsumo peca = pecas.get(id);
+        ajustar(peca, peca.getQuantidadeEstoque() - quantidade, peca.getQuantidadeReservada() - quantidade);
+    }
+
     public void devolver(String id, int quantidade) {
         PecaInsumo peca = pecas.get(id);
         ajustar(peca, peca.getQuantidadeEstoque(), peca.getQuantidadeReservada() - quantidade);
