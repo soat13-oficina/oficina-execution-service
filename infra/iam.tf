@@ -51,7 +51,7 @@ data "aws_iam_policy_document" "servico" {
   # O ReceptorSqs manda direto para a DLQ o que esta fora do contrato.
   statement {
     sid       = "EnviaParaAPropriaDlq"
-    actions   = ["sqs:SendMessage", "sqs:GetQueueUrl"]
+    actions   = ["sqs:SendMessage", "sqs:GetQueueUrl", "sqs:GetQueueAttributes"]
     resources = [aws_sqs_queue.execution_commands_dlq.arn]
   }
 

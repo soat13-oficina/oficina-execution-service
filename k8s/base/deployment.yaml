@@ -22,8 +22,39 @@ spec:
         app.kubernetes.io/part-of: oficina
         # Unified service tagging da Datadog (env e version vem do overlay e da pipeline).
         tags.datadoghq.com/service: oficina-execution-service
-      # A anotacao OpenMetrics do Datadog (ad.datadoghq.com/...) entra com as metricas de negocio
-      # (estoque, reservas, fila), no Passo 6 - mesma lista fechada usada no OS Service.
+      annotations:
+        #
+        #   oficina.estoque.reservas.count{resultado=ok|falha}   reserva atendida x recusada por falta de peca
+        #   oficina.mensageria.* / oficina.outbox.*              mensageria da Saga (publicadas, falhas, DLQ, outbox parado;
+        #                                                         esgotadas conta desde a subida do pod)
+        # Autodiscovery do Datadog Agent: raspa /actuator/prometheus DO POD, na porta 8081 (%%host%% e o IP do
+        # pod; nao passa pelo Service). Mesma lista fechada e mesmo mapeamento do OS Service (ver o comentario em
+        # oficina-app/k8s/base/deployment.yaml): o counter perde o _total, o namespace "oficina" e prependado e
+        # o nome final sai como oficina.<nome>.count (counter) ou oficina.<nome> (gauge). Metrica raspada e custom
+        # metric cobrada por serie: so entra o que tem alerta ou widget.
+        ad.datadoghq.com/oficina-execution-service.checks: |
+          {
+            "openmetrics": {
+              "init_config": {},
+              "instances": [
+                {
+                  "openmetrics_endpoint": "http://%%host%%:8081/actuator/prometheus",
+                  "namespace": "oficina",
+                  "metrics": [
+                    {"oficina_mensageria_publicadas": "mensageria.publicadas"},
+                    {"oficina_mensageria_consumidas": "mensageria.consumidas"},
+                    {"oficina_mensageria_falhas": "mensageria.falhas"},
+                    {"oficina_mensageria_sqs_recebidas": "mensageria.sqs.recebidas"},
+                    {"oficina_mensageria_dlq_mensagens": "mensageria.dlq.mensagens"},
+                    {"oficina_outbox_pendentes": "outbox.pendentes"},
+                    {"oficina_outbox_esgotadas": "outbox.esgotadas"},
+                    {"oficina_outbox_idade_maxima_seconds": "outbox.idade.maxima"},
+                    {"oficina_estoque_reservas": "estoque.reservas"}
+                  ]
+                }
+              ]
+            }
+          }
     spec:
       serviceAccountName: oficina-execution-service
       containers:

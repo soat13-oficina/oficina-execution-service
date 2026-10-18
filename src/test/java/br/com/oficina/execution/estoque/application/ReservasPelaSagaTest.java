@@ -19,6 +19,7 @@ import br.com.oficina.execution.estoque.infrastructure.mensageria.ManipuladorCom
 import br.com.oficina.execution.support.mensageria.PublicadorMensagensEmMemoria;
 import br.com.oficina.execution.support.persistence.PecaInsumoRepositoryEmMemoria;
 import br.com.oficina.execution.support.persistence.ReservaPecaRepositoryEmMemoria;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class ReservasPelaSagaTest {
 
@@ -30,13 +31,15 @@ class ReservasPelaSagaTest {
     private ReservaPecaRepositoryEmMemoria reservas;
     private PublicadorMensagensEmMemoria publicador;
     private ManipuladorComandosEstoque manipulador;
+    private SimpleMeterRegistry metricas;
 
     @BeforeEach
     void preparar() {
         pecas = new PecaInsumoRepositoryEmMemoria();
         reservas = new ReservaPecaRepositoryEmMemoria(pecas);
         publicador = new PublicadorMensagensEmMemoria();
-        EventosEstoque eventos = new EventosEstoque(publicador, PublicadorMensagensEmMemoria.fabrica());
+        metricas = new SimpleMeterRegistry();
+        EventosEstoque eventos = new EventosEstoque(publicador, PublicadorMensagensEmMemoria.fabrica(), metricas);
         Clock relogio = Clock.fixed(Instant.parse("2026-10-17T12:00:00Z"), ZoneOffset.UTC);
         manipulador = new ManipuladorComandosEstoque(
                 new ReservasPelaSaga(pecas, reservas, eventos, PublicadorMensagensEmMemoria.JSON, relogio));
@@ -181,5 +184,17 @@ class ReservasPelaSagaTest {
 
         assertThat(pecas.buscarPorId("a").orElseThrow().getQuantidadeReservada()).isEqualTo(3);
         assertThat(publicador.tipos()).containsExactly("PecasReservadas", "ReservaLiberada", "PecasReservadas");
+    }
+
+    @Test
+    void contaReservasAtendidasERecusadasPorFaltaDePeca() {
+        pecas.semear("a", "Filtro", "10.00", 5);
+
+        // Primeiro a recusada: uma reserva atendida deixaria a OS com pecas ativas e o reenvio so repetiria a resposta.
+        manipulador.tratar(reservar(new MensagensEstoque.ItemPeca("a", 9)));
+        manipulador.tratar(reservar(new MensagensEstoque.ItemPeca("a", 2)));
+
+        assertThat(metricas.get("oficina.estoque.reservas").tag("resultado", "ok").counter().count()).isEqualTo(1);
+        assertThat(metricas.get("oficina.estoque.reservas").tag("resultado", "falha").counter().count()).isEqualTo(1);
     }
 }
