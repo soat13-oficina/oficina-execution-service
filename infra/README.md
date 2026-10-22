@@ -48,7 +48,7 @@ peças estiver vazia** — um redeploy não devolve o estoque ao inicial. À mã
 
 - **Pipeline deste repo** (`ci-cd.yml`): as tabelas `oficina-<env>-{pecas,reservas,execucoes,execution-controle}`,
   a Role `oficina-<env>-oficina-execution-service`, o ECR `oficina-execution-service-<env>`, além de
-  `oficina/<env>/service-token` (OS) e `oficina/<env>/jwt-secret` (Lambda de autenticação).
+  `oficina/<env>/service-token` e `oficina/<env>/jwt-secret` (os dois do `infra/` do OS).
 - **Aplicação** (`PropriedadesDynamo`, `PropriedadesSqs`): monta os nomes a partir de `AMBIENTE` —
   `oficina-<ambiente>-<nome>` (tabelas) e `oficina-<ambiente>-<fila>.fifo` (filas). Mudou o nome aqui,
   muda lá.
