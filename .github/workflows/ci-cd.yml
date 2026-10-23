@@ -10,10 +10,10 @@ name: CI/CD (execution)
 #
 # INFRAESTRUTURA de que o deploy depende (aplicada antes, a mao):
 #   oficina-infra-k8s        VPC, EKS (e o AWS Load Balancer Controller, para o Ingress)
-#   oficina-app infra/       fila os-saga-replies e o segredo oficina/<env>/service-token
+#   oficina-app infra/       fila os-saga-replies e os segredos oficina/<env>/service-token e
+#                            oficina/<env>/jwt-secret
 #   infra/ (este repo)       tabelas do DynamoDB oficina-<env>-{pecas,reservas,execucoes,execution-controle},
 #                            fila execution-commands, ECR e Role IRSA - workflow infra.yml, manual
-#   oficina-lambda-auth      segredo do JWT (oficina/<env>/jwt-secret)
 #
 # Depois do rollout, o catalogo de demonstracao (scripts/seed-pecas.json) e carregado se a tabela de
 # pecas estiver vazia: os ambientes sao recriados a cada subida e nao ha migracao de dados.
@@ -215,7 +215,7 @@ jobs:
           # Mesmo segredo do OS e da Lambda de autenticacao: o JWT emitido la vale aqui.
           JWT_SECRET=$(ler "oficina/${AMBIENTE}/jwt-secret")
           if [ -z "$JWT_SECRET" ]; then
-            echo "::error::Segredo oficina/${AMBIENTE}/jwt-secret nao encontrado. Aplique oficina-lambda-auth em $AMBIENTE."
+            echo "::error::Segredo oficina/${AMBIENTE}/jwt-secret nao encontrado. Rode o 'Infra (OS Service)' do oficina-app em $AMBIENTE."
             exit 1
           fi
           echo "::add-mask::$JWT_SECRET"
