@@ -58,3 +58,13 @@ management:
 
 observabilidade:
   ambiente: ${AMBIENTE:local}
+
+# Nivel de log - o stdout em JSON e o que a Datadog indexa. INFO so para o codigo do servico
+# (br.com.oficina): eventos de negocio com o trace_id e o "Started ... in X seconds" de cada deploy.
+# Spring, Hibernate, Hikari, Flyway, Tomcat e SDK da AWS so a partir de WARN: em INFO eles so
+# narram a subida do pod, o que nao ajuda a demo nem alimenta alerta. Para investigar algo
+# localmente sem mexer aqui: LOGGING_LEVEL_BR_COM_OFICINA=DEBUG abre o detalhe do proprio servico.
+logging:
+  level:
+    root: WARN
+    br.com.oficina: INFO
