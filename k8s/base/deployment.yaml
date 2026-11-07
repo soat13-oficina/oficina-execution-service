@@ -85,6 +85,11 @@ spec:
               value: "oficina-execution-service"
             - name: DD_LOGS_INJECTION
               value: "true"
+            # Sem o dump "DATADOG TRACER CONFIGURATION" a cada subida: um JSON de varios KB no stderr,
+            # que a Datadog marca como status error por vir do stderr. Para ver a configuracao do tracer
+            # num diagnostico, basta voltar para "true".
+            - name: DD_TRACE_STARTUP_LOGS
+              value: "false"
             # Log JSON (Elastic Common Schema, nativo do Spring Boot 4), como no OS Service.
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"
