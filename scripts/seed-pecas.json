@@ -1,0 +1,12 @@
+[
+  {"pecaId": "5e8f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b", "descricao": "Filtro de oleo", "marca": "Bosch", "preco": 80.00, "quantidadeEstoque": 20, "codigoReferencia": "OB0986B01044", "categoria": "FILTROS"},
+  {"pecaId": "8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c2d", "descricao": "Filtro de ar", "marca": "Mann", "preco": 55.50, "quantidadeEstoque": 15, "codigoReferencia": "C25114", "categoria": "FILTROS"},
+  {"pecaId": "1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9", "descricao": "Pastilha de freio dianteira", "marca": "TRW", "preco": 210.00, "quantidadeEstoque": 8, "codigoReferencia": "GDB1330", "categoria": "FREIOS"},
+  {"pecaId": "2c3d4e5f-6071-4829-93a4-b5c6d7e8f90a", "descricao": "Disco de freio ventilado", "marca": "Fremax", "preco": 320.00, "quantidadeEstoque": 6, "codigoReferencia": "BD5372", "categoria": "FREIOS"},
+  {"pecaId": "3d4e5f60-7182-493a-a4b5-c6d7e8f90a1b", "descricao": "Oleo 5W30 sintetico 1L", "marca": "Mobil", "preco": 48.90, "quantidadeEstoque": 40, "codigoReferencia": "MOB-5W30-1L", "categoria": "LUBRIFICANTES"},
+  {"pecaId": "4e5f6071-8293-4a4b-b5c6-d7e8f90a1b2c", "descricao": "Bateria 60Ah", "marca": "Moura", "preco": 540.00, "quantidadeEstoque": 5, "codigoReferencia": "M60GD", "categoria": "ELETRICA"},
+  {"pecaId": "5f607182-93a4-4b5c-86d7-e8f90a1b2c3d", "descricao": "Vela de ignicao", "marca": "NGK", "preco": 32.00, "quantidadeEstoque": 30, "codigoReferencia": "BKR6E", "categoria": "IGNICAO"},
+  {"pecaId": "60718293-a4b5-4c6d-97e8-f90a1b2c3d4e", "descricao": "Amortecedor dianteiro", "marca": "Monroe", "preco": 410.00, "quantidadeEstoque": 4, "codigoReferencia": "G8052", "categoria": "SUSPENSAO"},
+  {"pecaId": "718293a4-b5c6-4d7e-a8f9-0a1b2c3d4e5f", "descricao": "Correia dentada", "marca": "Gates", "preco": 95.00, "quantidadeEstoque": 10, "codigoReferencia": "5521XS", "categoria": "TRANSMISSAO"},
+  {"pecaId": "8293a4b5-c6d7-4e8f-b90a-1b2c3d4e5f60", "descricao": "Radiador (SEM ESTOQUE: demonstra a falha de reserva)", "marca": "Valeo", "preco": 780.00, "quantidadeEstoque": 0, "codigoReferencia": "VAL-RAD-01", "categoria": "ARREFECIMENTO"}
+]

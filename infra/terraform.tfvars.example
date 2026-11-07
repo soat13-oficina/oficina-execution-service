@@ -1,0 +1,2 @@
+# Copie para terraform.tfvars (nao versionado). A mesma bucket do backend.hcl.
+state_bucket = "<bucket-dos-states-da-oficina>"

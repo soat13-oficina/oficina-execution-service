@@ -1,0 +1,4 @@
+# Copie para backend.hcl (nao versionado) e ajuste:
+#   terraform init -backend-config=backend.hcl
+bucket = "<bucket-dos-states-da-oficina>"
+region = "us-east-1"

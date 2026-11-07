@@ -1,0 +1,31 @@
+# Overlay de PRODUCAO. Aplicado pela pipeline a cada push na branch `master`.
+#
+#   kubectl apply -k k8s/overlays/prd
+#
+# __IMAGE_REPO__, __IMAGE_TAG__ e __IRSA_ROLE_ARN__ sao preenchidos pela pipeline.
+#
+# O Namespace oficina-prd e a ResourceQuota NAO sao criados aqui: o namespace e compartilhado
+# pelos tres servicos (ADR 0003 do oficina-app) e hoje nasce no overlay do OS Service.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: oficina-prd
+
+resources:
+  - ../../base
+
+images:
+  - name: oficina-execution-service
+    newName: __IMAGE_REPO__
+    newTag: __IMAGE_TAG__
+
+configMapGenerator:
+  - name: oficina-execution-service-config
+    envs:
+      - app.env
+
+patches:
+  - path: patch-serviceaccount.yaml
+  - path: patch-deployment.yaml
+  - path: patch-hpa.yaml
+  - path: patch-ingress.yaml

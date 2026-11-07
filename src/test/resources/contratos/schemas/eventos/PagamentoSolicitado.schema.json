@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/PagamentoSolicitado.schema.json",
+  "title": "PagamentoSolicitado",
+  "description": "Preferencia criada no Mercado Pago; link enviado ao cliente.",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-billing-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": "SolicitarPagamento",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "PagamentoSolicitado"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-billing-service"
+    },
+    "causationId": {
+      "$ref": "../comuns.schema.json#/$defs/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "pagamentoId",
+        "valor",
+        "linkPagamento",
+        "expiraEm"
+      ],
+      "properties": {
+        "pagamentoId": {
+          "$ref": "../comuns.schema.json#/$defs/uuid"
+        },
+        "valor": {
+          "$ref": "../comuns.schema.json#/$defs/dinheiro"
+        },
+        "linkPagamento": {
+          "type": "string",
+          "format": "uri"
+        },
+        "expiraEm": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000030",
+      "type": "PagamentoSolicitado",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": "00000000-0000-4000-8000-000000000008",
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-billing-service",
+      "payload": {
+        "pagamentoId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        "valor": "530.00",
+        "linkPagamento": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=123456789-abc",
+        "expiraEm": "2026-10-15T14:30:00Z"
+      }
+    }
+  ]
+}

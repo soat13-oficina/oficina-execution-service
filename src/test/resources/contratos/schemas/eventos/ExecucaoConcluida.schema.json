@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/eventos/ExecucaoConcluida.schema.json",
+  "title": "ExecucaoConcluida",
+  "description": "Servico concluido; pecas reservadas foram consumidas do estoque.",
+  "x-categoria": "evento",
+  "x-fila": "oficina-<env>-os-saga-replies.fifo",
+  "x-produtor": "oficina-execution-service",
+  "x-consumidor": "oficina-os-service",
+  "x-em-resposta-a": null,
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "ExecucaoConcluida"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-execution-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "mecanico",
+        "pecasConsumidas",
+        "concluidaEm"
+      ],
+      "properties": {
+        "mecanico": {
+          "$ref": "../comuns.schema.json#/$defs/mecanico"
+        },
+        "pecasConsumidas": {
+          "type": "array",
+          "items": {
+            "$ref": "../comuns.schema.json#/$defs/itemPeca"
+          }
+        },
+        "concluidaEm": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000020",
+      "type": "ExecucaoConcluida",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-execution-service",
+      "payload": {
+        "mecanico": {
+          "id": "mecanico@oficina.com",
+          "nome": "Joao Mecanico"
+        },
+        "pecasConsumidas": [
+          {
+            "pecaInsumoId": "5e8f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+            "quantidade": 1
+          },
+          {
+            "pecaInsumoId": "8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c2d",
+            "quantidade": 2
+          }
+        ],
+        "concluidaEm": "2026-10-15T16:20:00Z"
+      }
+    }
+  ]
+}

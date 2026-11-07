@@ -1,0 +1,125 @@
+# Namespace, imagem, replicas e recursos vem do overlay do ambiente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oficina-execution-service
+  labels:
+    app: oficina-execution-service
+spec:
+  selector:
+    matchLabels:
+      app: oficina-execution-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: oficina-execution-service
+        app.kubernetes.io/name: oficina-execution-service
+        app.kubernetes.io/part-of: oficina
+        # Unified service tagging da Datadog (env e version vem do overlay e da pipeline).
+        tags.datadoghq.com/service: oficina-execution-service
+      annotations:
+        #
+        #   oficina.estoque.reservas.count{resultado=ok|falha}   reserva atendida x recusada por falta de peca
+        #   oficina.mensageria.* / oficina.outbox.*              mensageria da Saga (publicadas, falhas, DLQ, outbox parado;
+        #                                                         esgotadas conta desde a subida do pod)
+        # Autodiscovery do Datadog Agent: raspa /actuator/prometheus DO POD, na porta 8081 (%%host%% e o IP do
+        # pod; nao passa pelo Service). Mesma lista fechada e mesmo mapeamento do OS Service (ver o comentario em
+        # oficina-app/k8s/base/deployment.yaml): o counter perde o _total, o namespace "oficina" e prependado e
+        # o nome final sai como oficina.<nome>.count (counter) ou oficina.<nome> (gauge). Metrica raspada e custom
+        # metric cobrada por serie: so entra o que tem alerta ou widget.
+        ad.datadoghq.com/oficina-execution-service.checks: |
+          {
+            "openmetrics": {
+              "init_config": {},
+              "instances": [
+                {
+                  "openmetrics_endpoint": "http://%%host%%:8081/actuator/prometheus",
+                  "namespace": "oficina",
+                  "metrics": [
+                    {"oficina_mensageria_publicadas": "mensageria.publicadas"},
+                    {"oficina_mensageria_consumidas": "mensageria.consumidas"},
+                    {"oficina_mensageria_falhas": "mensageria.falhas"},
+                    {"oficina_mensageria_sqs_recebidas": "mensageria.sqs.recebidas"},
+                    {"oficina_mensageria_dlq_mensagens": "mensageria.dlq.mensagens"},
+                    {"oficina_outbox_pendentes": "outbox.pendentes"},
+                    {"oficina_outbox_esgotadas": "outbox.esgotadas"},
+                    {"oficina_outbox_idade_maxima_seconds": "outbox.idade.maxima"},
+                    {"oficina_estoque_reservas": "estoque.reservas"}
+                  ]
+                }
+              ]
+            }
+          }
+    spec:
+      serviceAccountName: oficina-execution-service
+      containers:
+        - name: oficina-execution-service
+          # Nome simbolico: o overlay troca por <ECR>/oficina-execution-service:<tag> (bloco images:).
+          image: oficina-execution-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            # Actuator (health + prometheus): fora do Service e do Ingress; probes e o Datadog
+            # Agent falam direto com o IP do pod.
+            - name: management
+              containerPort: 8081
+          envFrom:
+            # ConfigMap gerado pelo overlay (configMapGenerator) com sufixo de hash: mudanca de
+            # configuracao dispara rolling update.
+            - configMapRef:
+                name: oficina-execution-service-config
+          env:
+            - name: MANAGEMENT_SERVER_PORT
+              value: "8081"
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_SERVICE
+              value: "oficina-execution-service"
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            # Log JSON (Elastic Common Schema, nativo do Spring Boot 4), como no OS Service.
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: "ecs"
+            # Secret criado pela pipeline a partir do Secrets Manager (ci-cd.yml, job deploy):
+            #   JWT_SECRET      oficina/<env>/jwt-secret (o mesmo do OS e da Lambda)
+            #   SERVICE_TOKEN   oficina/<env>/service-token (protege /internal/**)
+            # O acesso ao DynamoDB e ao SQS e pela Role IRSA, sem credencial.
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oficina-execution-service-secrets
+                  key: JWT_SECRET
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: oficina-execution-service-secrets
+                  key: SERVICE_TOKEN
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soat13-oficina.github.io/contratos/schemas/comandos/GerarOrcamento.schema.json",
+  "title": "GerarOrcamento",
+  "description": "Diagnostico concluido: gera o orcamento com snapshot do cliente, veiculo e funcionario. Precos das pecas consultados na Execution (REST). Sem os campos opcionais: mao de obra = soma dos servicos, desconto zero e validade definida pelo Billing. Transitorio (Fase 4, Passo 1, diagnostico ainda no OS Service): o atendente informa valorMaoDeObra (total), desconto, validade e observacoes no envio para orcamento, e servicos[].valorMaoDeObra pode faltar.",
+  "x-categoria": "comando",
+  "x-fila": "oficina-<env>-billing-commands.fifo",
+  "x-produtor": "oficina-os-service",
+  "x-consumidor": "oficina-billing-service",
+  "x-respostas": [
+    "OrcamentoGerado",
+    "OrcamentoFalhou"
+  ],
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "GerarOrcamento"
+    },
+    "version": {
+      "const": 1
+    },
+    "source": {
+      "const": "oficina-os-service"
+    },
+    "causationId": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "numeroOrdemServico",
+        "cliente",
+        "veiculo",
+        "funcionario",
+        "descricaoDiagnostico",
+        "servicos",
+        "pecas"
+      ],
+      "properties": {
+        "numeroOrdemServico": {
+          "$ref": "../comuns.schema.json#/$defs/numeroOrdemServico"
+        },
+        "cliente": {
+          "$ref": "../comuns.schema.json#/$defs/cliente"
+        },
+        "veiculo": {
+          "$ref": "../comuns.schema.json#/$defs/veiculo"
+        },
+        "funcionario": {
+          "$ref": "../comuns.schema.json#/$defs/funcionario"
+        },
+        "descricaoDiagnostico": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "servicos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "Como comuns#/$defs/servico, mas valorMaoDeObra opcional enquanto o diagnostico mora no OS Service (Passo 1).",
+            "required": [
+              "descricao"
+            ],
+            "properties": {
+              "descricao": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "valorMaoDeObra": {
+                "$ref": "../comuns.schema.json#/$defs/dinheiro"
+              }
+            }
+          }
+        },
+        "pecas": {
+          "type": "array",
+          "items": {
+            "$ref": "../comuns.schema.json#/$defs/itemPeca"
+          }
+        },
+        "valorMaoDeObra": {
+          "$ref": "../comuns.schema.json#/$defs/dinheiro",
+          "description": "Opcional (Passo 1): mao de obra total informada pelo atendente; tem precedencia sobre a soma dos servicos."
+        },
+        "desconto": {
+          "$ref": "../comuns.schema.json#/$defs/dinheiro",
+          "description": "Opcional (Passo 1). Maior que o total gera OrcamentoFalhou."
+        },
+        "validade": {
+          "$ref": "../comuns.schema.json#/$defs/dataHora",
+          "description": "Opcional (Passo 1). Ausente: o Billing aplica a validade padrao (7 dias)."
+        },
+        "observacoes": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Opcional (Passo 1)."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "messageId": "00000000-0000-4000-8000-000000000007",
+      "type": "GerarOrcamento",
+      "version": 1,
+      "sagaId": "6f0e2b8a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ordemServicoId": "3c9a1b2d-4e5f-4a7b-8c9d-0e1f2a3b4c5d",
+      "correlationId": "Yx2kLh1MIAMEJbQ=",
+      "causationId": null,
+      "occurredAt": "2026-10-15T13:00:00Z",
+      "source": "oficina-os-service",
+      "payload": {
+        "numeroOrdemServico": "OS-20261015-0042",
+        "cliente": {
+          "id": "7b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d0e",
+          "nome": "Maria Silva",
+          "documento": "52998224725",
+          "tipo": "PF",
+          "email": "maria@example.com"
+        },
+        "veiculo": {
+          "placa": "ABC1D23",
+          "marca": "Toyota",
+          "modelo": "Corolla",
+          "ano": 2020
+        },
+        "funcionario": {
+          "id": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f",
+          "nome": "Ana Atendente"
+        },
+        "descricaoDiagnostico": "Oleo vencido e pastilhas dianteiras no limite",
+        "servicos": [
+          {
+            "descricao": "Troca de oleo e filtro",
+            "valorMaoDeObra": "120.00"
+          },
+          {
+            "descricao": "Substituicao das pastilhas dianteiras",
+            "valorMaoDeObra": "180.00"
+          }
+        ],
+        "pecas": [
+          {
+            "pecaInsumoId": "5e8f1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+            "quantidade": 1
+          },
+          {
+            "pecaInsumoId": "8a9b0c1d-2e3f-4a5b-9c6d-7e8f9a0b1c2d",
+            "quantidade": 2
+          }
+        ]
+      }
+    }
+  ]
+}
