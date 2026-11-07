@@ -104,6 +104,11 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sqs</artifactId>
         </dependency>
+        <!-- Credenciais por IRSA no EKS: o WebIdentityTokenFileCredentialsProvider exige o modulo sts. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
